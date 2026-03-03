@@ -101,17 +101,17 @@ get_totals <- function(var, df, wt = NULL, by = NULL, by_total = FALSE, percent 
   # Make sure variable is a factor
   if (exists("var_split")) {
     df <- df %>%
-      mutate_at(.vars = var_split, .funs = function(x) as.factor(x))
+      mutate(across(all_of(var_split), as.factor))
   }
   else {
     df <- df %>%
-      mutate_at(.vars = var, .funs = function(x) as.factor(x))
+      mutate(across(all_of(var), as.factor))
   }
 
   # If by exists, make sure the corresponding variable is a factor
   if(!is.null(by)) {
     df <- df %>%
-      mutate_at(.vars = by, .funs = function(x) droplevels(as.factor(x)))
+      mutate(across(all_of(by), ~droplevels(as.factor(.x))))
   }
 
   # Main internal function
@@ -132,19 +132,19 @@ get_totals <- function(var, df, wt = NULL, by = NULL, by_total = FALSE, percent 
     # If na.rm = TRUE, filter out cases where var is NA
     if (na.rm) {
       df_in <- df_in %>%
-        filter_at(.vars = var, .vars_predicate = all_vars(!is.na(.)))
+        filter(if_all(all_of(var), ~!is.na(.x)))
     }
 
     # Else if na.rm = FALSE, make NA an explicit factor level
     else if (!(na.rm)) {
       if (exists("var_split")) {
         df_in <- df_in %>%
-          mutate_at(.vars = var_split, fct_explicit_na)
+          mutate(across(all_of(var_split), fct_explicit_na))
       }
 
       else {
         df_in <- df_in %>%
-          mutate_at(.vars = var, fct_explicit_na)
+          mutate(across(all_of(var), fct_explicit_na))
       }
     }
 
@@ -154,14 +154,14 @@ get_totals <- function(var, df, wt = NULL, by = NULL, by_total = FALSE, percent 
     if (anyNA(df_in[[wt_var]])) {
       num_NAs <- sum(is.na(df_in[[wt_var]]))
       df_in <- df_in %>%
-        filter_at(.vars = wt_var, .vars_predicate = all_vars(!is.na(.)))
+        filter(if_all(all_of(wt_var), ~!is.na(.x)))
       warning(sprintf("Removed %s rows containing missing values for %s", num_NAs, wt_var))
     }
 
     # Convert totals to percent if applicable (scaling ._wt to add to 100)
     if (percent) {
       df_in <- df_in %>%
-        mutate_at(.vars = wt_var, .funs = function(w) 100 * w / sum(w))
+        mutate(across(all_of(wt_var), ~100 * .x / sum(.x)))
     }
 
     # This is the actual piece of code that does the weighted crosstab; everything else is formatting.
@@ -177,13 +177,13 @@ get_totals <- function(var, df, wt = NULL, by = NULL, by_total = FALSE, percent 
     else {
       out <- df_in %>%
         group_by(!!sym(var)) %>%
-        summarise_at(.vars = wt_var, .funs = sum)
+        summarise(across(all_of(wt_var), sum))
     }
 
     # If digits = TRUE, round by that number of digits; otherwise, don't
     if (!is.null(digits)) {
       out <- out %>%
-        mutate_at(.vars = wt_var, .funs = ~round(.x, digits = digits))
+        mutate(across(all_of(wt_var), ~round(.x, digits = digits)))
     }
 
     # If complete = TRUE, include all factor levels with no observations.
@@ -216,9 +216,9 @@ get_totals <- function(var, df, wt = NULL, by = NULL, by_total = FALSE, percent 
     })
     if(by_total) {
       out[["Total"]] <- purrr::map(wt, ~make_weighted_crosstab(var, df, .x) %>%
-                              tidyr::gather(weight_name, Total, -matches(var))) %>%
+                              tidyr::pivot_longer(cols = -matches(var), names_to = "weight_name", values_to = "Total")) %>%
         bind_rows() %>%
-        select_at(.vars = c(var, "Total", "weight_name"))
+        select(all_of(c(var, "Total", "weight_name")))
     }
     out <- out %>%
       purrr::reduce(full_join, by = c(var, "weight_name")) %>%

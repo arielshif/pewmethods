@@ -39,12 +39,12 @@ mice.impute.ranger <- function(y, ry, x, ntree = 10, wy = NULL, type = NULL, ...
   o_nodes <- data.frame(matrix(predict(f, data = obs, predict.all = T,
                                       type = "terminalNodes")$predictions, ncol=ntree)) %>%
     mutate(donor_id = 1:n()) %>%
-    tidyr::gather(tree, node, -donor_id)
+    tidyr::pivot_longer(cols = -donor_id, names_to = "tree", values_to = "node")
 
   p <- data.frame(matrix(predict(f, data = mis, predict.all = TRUE,
                                 type = "terminalNodes")$predictions, ncol = ntree)) %>%
     mutate(id = 1:n()) %>%
-    tidyr::gather(tree, node, -id) %>%
+    tidyr::pivot_longer(cols = -id, names_to = "tree", values_to = "node") %>%
     group_by(id) %>%
     slice(sample(1:n(), size = 1)) %>%
     left_join(o_nodes, by = c("tree", "node")) %>%

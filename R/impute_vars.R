@@ -75,13 +75,13 @@ impute_vars <- function(.data, to_impute = NULL, method = "ranger", seed = NA, .
   }
 
   else if (!is.null(to_impute)) {
-    rk_vars <- .data %>% select_at(.vars = to_impute)
+    rk_vars <- .data %>% select(any_of(to_impute))
   }
 
   imputed <- mice::complete(mice::mice(rk_vars, m = 1, method = method, seed = seed, ...))
   res <- .data %>%
-    select_at(.vars = setdiff(varnames, names(rk_vars))) %>%
+    select(any_of(setdiff(varnames, names(rk_vars)))) %>%
     bind_cols(imputed) %>%
-    select_at(.vars = varnames)
+    select(any_of(varnames))
   return(res)
 }
